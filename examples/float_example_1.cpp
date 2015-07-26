@@ -1,6 +1,6 @@
 /**
   * This example is based on rule FLP32-C from CERT coding standard.
-  * Three errors may occur when oeprating with math.h functions: domain, Pole, or range errors.
+  * Three errors may occur when oeprating with math.h functions: Domain, Pole, or Range errors.
   */
 
 #include <cmath>
