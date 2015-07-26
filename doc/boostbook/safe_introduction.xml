@@ -54,6 +54,89 @@
     return x + y * z;
 }
 </programlisting>
+
+    <para>Similar problems can be fount in the family of floating point data
+    types. In the following example we show how adding two finite values can
+    result in an infinite one.</para>
+
+    <programlisting>#include &lt;iostream&gt;
+#include &lt;limits&gt;
+
+int main(){
+using namespace std;
+float a = numeric_limits&lt;float&gt;::max();
+float b = a + numeric_limits&lt;float&gt;::max();
+cout &lt;&lt; "b is " &lt;&lt; b &lt;&lt; endl;
+
+return 0;
+}</programlisting>
+
+    <para>Executing this code outputs:</para>
+
+    <programlisting>b is inf</programlisting>
+
+    <para>This fallback to infinite for overflow is a convenient in some
+    contexts, but an unexpected silent surprise in others. Overflow to
+    infinite is not the only surprice silently introduced by floating point
+    operations, neither the most dangerous. it is actually the one most
+    programmers care to check.</para>
+
+    <para>In 1991, David Goldberg collected a list of the most common dangers
+    when developing using Floating Point, which can be found on his paper:
+    "What every computer scientist should know about floating-point
+    arithmetic".</para>
+
+    <para>Most important dangers can be classified as follows:</para>
+
+    <para><itemizedlist>
+        <listitem>
+          <para>Rounding error</para>
+
+          <para>Some operations may require rounding the result. (i.e. because
+          the mantissa is not large enough to keep the result.)</para>
+
+          <para>Definition error. (i.e. 0.3 is not expressible as Floating
+          Point.)</para>
+
+          <para>An interesting side-effect of rounding is that operations are
+          not guaranteed to be reversible: a != a+b-b is a valid
+          result.</para>
+        </listitem>
+
+        <listitem>
+          <para>Not a Number</para>
+
+          <para>Some operations may produce Not a Number results, and they are
+          not detected until used (if signalling is on).</para>
+        </listitem>
+
+        <listitem>
+          <para>Infinity by overflow</para>
+
+          <para>Infinity arithmetic is useful mostly when infinity values are
+          defined by user, and not because of an overflow.</para>
+        </listitem>
+
+        <listitem>
+          <para>Signed zero</para>
+
+          <para>In some cases as discontinuous functions the negative zero
+          have important use.</para>
+        </listitem>
+
+        <listitem>
+          <para>Underflow (considering and not considering normalised numbers
+          as underflow)</para>
+        </listitem>
+      </itemizedlist></para>
+
+    <para>Another reason to be interest in these silent behavoirs are the
+    security implications of ignoring them. The CERT publishes standards for
+    secure coding practices, these standards raises concerns about how to
+    improper use of floating point variables may introduce security holes to
+    the produced software. In the following section, we show examples of how
+    some of these concerns can be catched using safe_numerics for floating
+    point data types.</para>
   </section>
 
   <section id="safe_numerics.introduction.solution">
@@ -62,8 +145,7 @@
     <para>This library implements special versions of int, unsigned, etc.
     which behave exactly like the original ones EXCEPT that the results of
     these operations are guaranteed to be either arithmetically correct or
-    invoke an error. Using this library, the above would be rendered
-    as:</para>
+    invoke a error. Using this library, the above would be rendered as:</para>
 
     <programlisting>#include &lt;boost/safe_numeric/safe_integer.hpp&gt;
 
@@ -97,6 +179,62 @@ int f(safe&lt;int&gt; x, safe&lt;int&gt; y){
     <code>safe_unsigned_range&lt;MIN, MAX&gt;</code> which will throw an
     exception if an attempt is made to store a result which is outside the
     closed range [MIN, MAX].</para>
+
+    <para>In the case of floating point data types, several algorithms (mostly
+    comming from matrix numerical methods) account for imprecisions of the
+    data types and work properly without monitoring for them, anyway
+    overflows, underflows or other conditions may still be relevant. The only
+    way to know what to check is thru user information of the context. </para>
+
+    <para>Catching this conditions was very difficult in the past; since C++11
+    standard introduced cfenv.h it was highly facilitate to access Floating
+    Point Unit flags controlling and checking information on Floating Point
+    environment. </para>
+
+    <para>Anyway, developer intervention is required for checking every
+    Floating Point operation was conducted as expected. Doing so, renders the
+    code harder to read, maintain and it adds a new source of potential
+    programming errors.</para>
+
+    <para>The goal for Floating points in SafeNumerics is the introduction of
+    a drop-in replacement of native floating point data types (float, double,
+    long double) introducing safety checks for arithmetic operations, and in
+    the case an operation result is unreliable, reporting the user
+    properly.</para>
+
+    <para>Since the reliability of the results is based on the algorithms
+    used, we propose users to declare their concerns using template parameters
+    as policies.</para>
+
+    <para>We show some usage examples below for illustration.</para>
+
+    <programlisting>//no underflow example
+
+safe_numerics&lt;double, no_underflow&gt; a = 1;
+
+safe_numerics&lt;double, no_underflow&gt; b = numeric_limits&lt;double&gt;::max();
+
+safe_numerics&lt;double, no_underflow&gt; c =  a / b ; //throws because of underflow.
+
+//no rounding example
+
+safe_numerics&lt;double, no_rounding&gt; d = 0.3SNF; // compilation error, the number is not representable.
+
+safe_numerics&lt;double, no_rounding&gt; e = 2E25SNF; 
+
+safe_numerics&lt;double, no_rounding&gt; f = 2E100SNF;
+
+safe_numerics&lt;double, no_rounding&gt; g = e + f ; //throws because of operation rounding.
+
+//multiple conditions example
+
+safe_numerics&lt;double, no_rounding | no_overflow_to_infinity &gt; h = numeric_limits&lt;double&gt;::max();
+
+safe_numerics&lt;double, BSF_COMBINE(no_rounding,no_overflow_to_infinity)&gt; i =  numeric_limits&lt;double&gt;::max();
+
+safe_numerics&lt;double, BSF_COMBINE(no_rounding-no_overflow_to_infinity)&gt; j = h + i; // throws because of overflow to infinity.</programlisting>
+
+    <para/>
   </section>
 
   <section id="safe_numerics.introduction.summary">
@@ -105,16 +243,16 @@ int f(safe&lt;int&gt; x, safe&lt;int&gt; y){
     <para>Using techniques of C++ including overloading, template
     metaprogramming, and others, this library implements special versions of
     int, unsigned, etc. named <code>safe&lt;int&gt;</code>,
-    <code>safe&lt;unsigned int&gt;</code> etc. These behave exactly like the
-    original ones EXCEPT that expressions involving these types are checked to
-    guarantee any possible arithmetic errors are trapped at compile time (if
-    possible) or at runtime. Since these types are meant to be "drop-in"
-    replacements - they function in all other ways the same as the built-in
-    types they are meant to replace. So things which are legal - such as
-    assigning an signed to unsigned value are not trapped at compile time - as
-    they are legal C/C++ code - but rather checked at runtime to trap the case
-    where this (legal) operation would lead to an arithmetically incorrect
-    result.</para>
+    <code>safe&lt;unsigned int&gt;, safe&lt;float&gt;,</code> etc. These
+    behave exactly like the original ones EXCEPT that expressions involving
+    these types are checked to guarantee any unexpected arithmetic errors are
+    trapped at compile time (if possible) or at runtime. Since these types are
+    meant to be "drop-in" replacements - they function in all other ways the
+    same as the built-in types they are meant to replace. So things which are
+    legal - such as assigning an signed to unsigned value are not trapped at
+    compile time - as they are legal C/C++ code - but rather checked at
+    runtime to trap the case where this (legal) operation would lead to an
+    arithmetically incorrect result.</para>
 
     <para>Note that the library addresses arithmetical errors generated by
     straightforward C/C++ expressions. Some of these arithmetic errors are
@@ -126,11 +264,11 @@ int f(safe&lt;int&gt; x, safe&lt;int&gt; y){
   <section id="safe_numerics.introduction.requirements">
     <title>Requirements</title>
 
-    <para>This library is composed entirely of C++ Headers. I requires a
-    compiler compatible with the C++11 standard.</para>
+    <para>This library is composed entirely of C++ Headers. It requires a
+    compiler compatible with the C++14 standard.</para>
 
-    <para>The following Boost Libraries must be installed in order to use this
-    library</para>
+    <para>The following Boost Libraries 1.57+ must be installed in order to
+    use this library</para>
 
     <para><itemizedlist>
         <listitem>
@@ -160,18 +298,34 @@ int f(safe&lt;int&gt; x, safe&lt;int&gt; y){
         <listitem>
           <para>integer traits</para>
         </listitem>
-      </itemizedlist></para>
+      </itemizedlist>The following are requirements for testing and running
+    examples only</para>
+
+    <itemizedlist>
+      <listitem>
+        <para>Boost.preprocessor</para>
+      </listitem>
+
+      <listitem>
+        <para>Boost.test</para>
+      </listitem>
+    </itemizedlist>
+
+    <para>Building scripts in cmake are provided for testing and
+    examples.</para>
   </section>
 
   <section id="safe_numerics.introduction.scope">
     <title>Scope</title>
 
-    <para>This library currently applies only to built-in integer types.
-    Analogous issues arise for floating point types but they are not currently
-    addressed by this version of the library. User or Library defined types
-    such as arbitrary precision integers can also have this problem. Extension
-    of this library to these other types is not currently under development
-    but may be addressed in the future. This is one reason why the library
-    name is "safe numeric" rather than "safe integer" library.</para>
+    <para>This library currently applies only to built-in integer and floating
+    point types. User or Library defined types such as arbitrary precision
+    integers can also have this problem. Extension of this library to other
+    types is not currently under development but may be addressed in the
+    future. Some compilers does not implement #pragma FENV_ACCESS as defined
+    in the C++11/C++14 standards, in those compilers avoiding racing
+    conditions cannot be guaranteed.</para>
+
+    <para/>
   </section>
 </section>
