@@ -6,33 +6,784 @@
 <meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
 <link rel="home" href="index.html" title="Safe Numerics">
 <link rel="up" href="index.html" title="Safe Numerics">
-<link rel="prev" href="introduction/scope.html" title="Scope">
-<link rel="next" href="tutorial/1.html" title="Arithmetic operations can yield incorrect results.">
+<link rel="prev" href="introduction.html" title="Introduction">
+<link rel="next" href="notes.html" title="Notes">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
 <table cellpadding="2" width="100%"><tr>
-<td valign="top"><img alt="pre-boost" width="30%" height="30%" src="pre-boost.jpg"></td>
-<td align="center"><a href="../../index.html">Home</a></td>
-<td align="center"><a href="http://www.boost.org/doc/libs">Libraries</a></td>
-<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
-<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
-<td align="center"><a href="../../more/index.htm">More</a></td>
+<td valign="top"><img href="index.html" height="164px" src="pre-boost.jpg" alt="Library Documentation Index"></td>
+<td><h2>Safe Numerics</h2></td>
 </tr></table>
-<hr>
 <div class="spirit-nav">
-<a accesskey="p" href="introduction/scope.html"><img src="images/prev.png" alt="Prev"></a><a accesskey="u" href="index.html"><img src="images/up.png" alt="Up"></a><a accesskey="h" href="index.html"><img src="images/home.png" alt="Home"></a><a accesskey="n" href="tutorial/1.html"><img src="images/next.png" alt="Next"></a>
+<a accesskey="p" href="introduction.html"><img src="images/prev.png" alt="Prev"></a><a accesskey="u" href="index.html"><img src="images/up.png" alt="Up"></a><a accesskey="h" href="index.html"><img src="images/home.png" alt="Home"></a><a accesskey="n" href="notes.html"><img src="images/next.png" alt="Next"></a>
 </div>
 <div class="section">
 <div class="titlepage"><div><div><h2 class="title" style="clear: both">
 <a name="safe_numerics.tutorial"></a>Tutorial and Motivating Examples</h2></div></div></div>
 <div class="toc"><dl>
-<dt><span class="section"><a href="tutorial/1.html">Arithmetic operations can yield incorrect results.</a></span></dt>
-<dt><span class="section"><a href="tutorial/2.html">Undetected overflow</a></span></dt>
-<dt><span class="section"><a href="tutorial/3.html">Undetected underflow</a></span></dt>
-<dt><span class="section"><a href="tutorial/4.html">Implicit conversions change data values</a></span></dt>
-<dt><span class="section"><a href="tutorial/5.html">Array index value can exceed array limits</a></span></dt>
-<dt><span class="section"><a href="tutorial/6.html">Checking of initialization values can be easily overlooked</a></span></dt>
+<dt><span class="section"><a href="tutorial.html#safe_numerics.tutorial.1">Arithmetic operations can yield incorrect results.</a></span></dt>
+<dt><span class="section"><a href="tutorial.html#idp140530281606928">Extending for Floating Point arithmetic</a></span></dt>
 </dl></div>
+<div class="section">
+<div class="titlepage"><div><div><h3 class="title">
+<a name="safe_numerics.tutorial.1"></a>Arithmetic operations can yield incorrect results.</h3></div></div></div>
+<p>When some operation results in a result which exceeds the capacity
+    of a data variable to hold it, the result is undefined in the case of
+    Integer variables. This is called "overflow". Since word size can differ
+    between machines, code which produces correct results in one set of
+    circumstances may fail when re-compiled on a machine with different
+    hardware. When this occurs, Most C++ compilers will silently continue
+    compilation with no indication of the problem. It is the programmer's
+    responsibility to ensure such undefined behavior is avoided.</p>
+<p>We will start in this section showing how to deal with this problems
+    when working with integer variables, in next section examples can be found
+    of how to deal with the problem when using Floating Point
+    variables.</p>
+<div class="section">
+<div class="titlepage"><div><div><h4 class="title">
+<a name="idp140530258844560"></a>Undetected integer overflow</h4></div></div></div>
+<p>The following program demonstrates the overflow problem and how to
+      solve it replacing instances of <code class="computeroutput">char</code> type with
+      <code class="computeroutput">safe&lt;char&gt;</code> type.</p>
+<pre class="programlisting">#include &lt;cassert&gt;
+#include &lt;exception&gt;
+#include &lt;iostream&gt;
+
+#include "../include/safe_integer.hpp"
+
+void detected_msg(bool detected){
+    std::cout &lt;&lt; (detected ? "error detected!" : "error NOT detected! ") &lt;&lt; std::endl;
+}
+
+int main(int argc, const char * argv[]){
+    std::cout &lt;&lt; "example 1:";
+    std::cout &lt;&lt; "undetected erroneous expression evaluation" &lt;&lt; std::endl;
+    std::cout &lt;&lt; "Not using safe numerics" &lt;&lt; std::endl;
+    try{
+        char x = 127;
+        char y = 2;
+        char z;
+        // this produces an invalid result !
+        z = x + y;
+        // it is the wrong result !!!
+        assert(z != 129);
+        // but assert fails to detect it since C++ implicitly
+        // converts variables to int before evaluating he expression!
+        assert(z != x + y);
+        std::cout &lt;&lt; static_cast&lt;int&gt;(z) &lt;&lt; " != " &lt;&lt; x + y &lt;&lt; std::endl;
+        detected_msg(false);
+    }
+    catch(std::exception){
+        assert(false); // never arrive here
+    }
+    // solution: replace char with safe&lt;char&gt;
+    std::cout &lt;&lt; "Using safe numerics" &lt;&lt; std::endl;
+    try{
+        using namespace boost::numeric;
+        safe&lt;char&gt; x = 127;
+        safe&lt;char&gt; y = 2;
+        safe&lt;char&gt; z;
+        // rather than producing and invalid result an exception is thrown
+        z = x + y;
+        assert(false); // never arrive here
+    }
+    catch(std::exception &amp; e){
+        // which can catch here
+        std::cout &lt;&lt; e.what() &lt;&lt; std::endl;
+        detected_msg(true);
+    }
+    return 0;
+}
+</pre>
+<p>A variation of the above is when a value is
+      incremented/decremented beyond it's domain. This is a common problem
+      with for loops.</p>
+<pre class="programlisting">#include &lt;cassert&gt;
+#include &lt;exception&gt;
+#include &lt;iostream&gt;
+
+#include "../include/safe_integer.hpp"
+
+void detected_msg(bool detected){
+    std::cout &lt;&lt; (detected ? "error detected!" : "error NOT detected! ") &lt;&lt; std::endl;
+}
+
+int main(int argc, const char * argv[]){
+    std::cout &lt;&lt; "example 2:";
+    std::cout &lt;&lt; "undetected overflow in data type" &lt;&lt; std::endl;
+    try{
+        int x = INT_MAX;
+        // the following silently produces an incorrect result
+        ++x;
+        std::cout &lt;&lt; x &lt;&lt; " != " &lt;&lt; INT_MAX &lt;&lt; " + 1" &lt;&lt; std::endl;
+        detected_msg(false);
+    }
+    catch(std::exception){
+        assert(false); // never arrive here
+    }
+    // solution: replace int with safe&lt;int&gt;
+    try{
+        using namespace boost::numeric;
+        safe&lt;int&gt; x = INT_MAX;
+        // throws exception when result is past maximum possible 
+        ++x;
+        assert(false); // never arrive here
+    }
+    catch(std::exception &amp; e){
+        std::cout &lt;&lt; e.what() &lt;&lt; std::endl;
+        detected_msg(true);
+    }
+    return 0;
+}
+</pre>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h4 class="title">
+<a name="safe_numerics.tutorial.4"></a>Implicit integer conversions change data values</h4></div></div></div>
+<p>A simple assignment or arithmetic expression will generally
+      convert all the terms to the same type. Sometimes this can silently
+      change values. For example, when a signed data variable contains a
+      negative type, assigning to a unsigned type will be permitted by any
+      C/C++ compiler but will be treated as large unsigned value. Most modern
+      compilers will emit a compile time warning when this conversion is
+      performed. The user may then decide to change some data types or apply a
+      <code class="computeroutput">static_cast</code>. This is less than satisfactory for two
+      reasons:</p>
+<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem"><p>It may be unwieldy to change all the types to signed or
+            unsigned.</p></li>
+<li class="listitem"><p>Littering one's program with <code class="computeroutput">static_cast</code><code class="computeroutput">
+            </code>makes it more difficult to read.</p></li>
+<li class="listitem"><p>We may believe that our signed type will never contain a
+            negative value. If we use a <code class="computeroutput">static_cast</code> to suppress
+            the warning, we'll fail to detect a program error when it is
+            committed. This is aways a risk with casts.</p></li>
+</ul></div>
+<p>This solution is the same as the above, Just replace instances of
+      the <code class="computeroutput">int </code>with <code class="computeroutput">safe&lt;int&gt;</code>.</p>
+<pre class="programlisting">#include &lt;cassert&gt;
+#include &lt;exception&gt;
+#include &lt;iostream&gt;
+
+#include "../include/safe_integer.hpp"
+
+void detected_msg(bool detected){
+    std::cout &lt;&lt; (detected ? "error detected!" : "error NOT detected! ") &lt;&lt; std::endl;
+}
+
+int main(int argc, const char * argv[]){
+    std::cout &lt;&lt; "example 4:";
+    std::cout &lt;&lt; "undetected underflow in data type" &lt;&lt; std::endl;
+    std::cout &lt;&lt; "Not using safe numerics" &lt;&lt; std::endl;
+    try{
+        unsigned int x = 0;
+        // the following silently produces an incorrect result
+        --x;
+        // because C/C++ implicitly converts mis-matched arguments to int
+        // suggests that the operation is correct
+        assert(x == -1);
+        // even though it's not !!!
+
+        // so the error is not detected!
+        std::cout &lt;&lt; x &lt;&lt; " != " &lt;&lt; -1 &lt;&lt; std::endl;
+        detected_msg(false);
+    }
+    catch(std::exception){
+        assert(false); // never arrive here
+    }
+    // solution: replace unsigned int with safe&lt;unsigned int&gt;
+    std::cout &lt;&lt; "Using safe numerics" &lt;&lt; std::endl;
+    try{
+        using namespace boost::numeric;
+        safe&lt;unsigned int&gt; x = 0;
+        // decrement unsigned to less than zero throws exception
+        --x;
+        assert(false); // never arrive here
+    }
+    catch(std::exception &amp; e){
+        std::cout &lt;&lt; e.what() &lt;&lt; std::endl;
+        detected_msg(true);
+    }
+    return 0;
+}
+</pre>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h4 class="title">
+<a name="safe_numerics.tutorial.5"></a>Array index value can exceed array limits</h4></div></div></div>
+<p>Using an intrinsic C++ array, it's very easy to exceed array
+      limits. This can fail to be detected when it occurs and create bugs
+      which are hard to find. There are several ways to address this, but one
+      of the simplest would be to use safe_unsigned_range;</p>
+<pre class="programlisting">#include &lt;cassert&gt;
+#include &lt;stdexcept&gt;
+#include &lt;iostream&gt;
+
+#include "../include/safe_range.hpp"
+
+void detected_msg(bool detected){
+    std::cout &lt;&lt; (detected ? "error detected!" : "error NOT detected! ") &lt;&lt; std::endl;
+}
+
+int main(int argc, const char * argv[]){
+    // problem: array index values can exceed array bounds
+    std::cout &lt;&lt; "example 5: ";
+    std::cout &lt;&lt; "array index values can exceed array bounds" &lt;&lt; std::endl;
+    std::cout &lt;&lt; "Not using safe numerics" &lt;&lt; std::endl;
+    int i_array[37];
+
+    unsigned int i_index = 43;
+    // the following corrupts memory.
+    // This may or may not be detected at run time.
+    // i_array[i_index] = 84; // comment this out so it can be tested!
+    detected_msg(false);
+
+    // solution: replace unsigned array index with safe_unsigned_range
+    std::cout &lt;&lt; "Using safe numerics" &lt;&lt; std::endl;
+    try{
+        using namespace boost::numeric;
+        safe_unsigned_range&lt;0, sizeof(i_array)/sizeof(int) - 1&gt; i_index;
+        i_index = 36; // this works fine
+        i_array[i_index] = 84;
+        i_index = 37; // throw exception here!
+        i_array[i_index] = 84; // so we never arrive here
+        assert(false);
+    }
+    catch(std::exception &amp; e){
+        std::cout &lt;&lt; e.what() &lt;&lt; std::endl;
+        detected_msg(true);
+    }
+    return 0;
+}
+</pre>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h4 class="title">
+<a name="safe_numerics.tutorial.6"></a>Checking of initialization values can be easily
+      overlooked</h4></div></div></div>
+<p>It's way too easy to overlook the checking of parameters received
+      from outside the current program.</p>
+<pre class="programlisting">#include &lt;cassert&gt;
+#include &lt;stdexcept&gt;
+#include &lt;sstream&gt;
+#include &lt;iostream&gt;
+
+#include "../include/safe_integer.hpp"
+
+void detected_msg(bool detected){
+    std::cout &lt;&lt; (detected ? "error detected!" : "error NOT detected! ") &lt;&lt; std::endl;
+}
+
+int main(int argc, const char * argv[]){
+    // problem: checking of externally produced value can be overlooked
+    std::cout &lt;&lt; "example 6: ";
+    std::cout &lt;&lt; "checking of externally produced value can be overlooked" &lt;&lt; std::endl;
+    std::cout &lt;&lt; "Not using safe numerics" &lt;&lt; std::endl;
+
+    std::istringstream is("12317289372189 1231287389217389217893");
+
+    int x, y, z;
+    is &gt;&gt; x &gt;&gt; y; // get integer values from the user
+    z = x + y;
+    std::cout &lt;&lt; z &lt;&lt; std::endl;  // display sum of the values
+    detected_msg(false);
+    
+    // solution: asign externally retrieved values to safe equivalents
+    std::cout &lt;&lt; "Using safe numerics" &lt;&lt; std::endl;
+    {
+        using namespace boost::numeric;
+        safe&lt;int&gt; x, y, z;
+        is.seekg(0);
+        try{
+            is &gt;&gt; x &gt;&gt; y; // get integer values from the user
+            detected_msg(false);
+        }
+        catch(std::exception e){
+            std::cout &lt;&lt; e.what() &lt;&lt; std::endl;
+            detected_msg(true);
+        }
+    }
+    return 0;
+}
+</pre>
+<p>Without
+      safe integer, one will have to insert new code every time an integer
+      variable is retrieved. This is a tedious and error prone
+      procedure.</p>
+</div>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h3 class="title">
+<a name="idp140530281606928"></a>Extending for Floating Point arithmetic</h3></div></div></div>
+<p>The follwoing examples are based on the rules and recommendations of
+    the C and C++ CERT coding standards for secure code practices. Each of
+    them refers to a particular practice, and the code can be find in the
+    examples folder of the project.</p>
+<div class="section">
+<div class="titlepage"><div><div><h4 class="title">
+<a name="idp140530281608240"></a>Domain, Pole, and Range errors</h4></div></div></div>
+<p>This example is based on rule FLP32-C from CERT coding standard.
+      Three errors may occur when operating with math.h functions: Domain,
+      Pole, or Range errors.</p>
+<p>The first, domain error, is when the input value is not in the
+      domain of the function. The second, pole error, is when a result is
+      represented as infinity because is approximating to the limit of the
+      function. The last one, range error, is when the result does not fit in
+      the data type used. </p>
+<p>The danger here is even the functions are not returning the
+      expected value, a value is returned, and unless explicitly checking for
+      combinations of flags in the floating point environment and math errno
+      variable, execution silently continues.</p>
+<p>Here, we show an example of domain error when using the atanh
+      function form &lt;cmath&gt; library. Here, passing a value of 2.0 should
+      throw an exception, because 2 is not in the domain of the inverse
+      hyperbolic tangent function. Below, the same example is implemented
+      using safe&lt;float&gt;, in this case an exception is thrown as
+      expected.</p>
+<pre class="programlisting">#include &lt;cmath&gt;
+#include &lt;iostream&gt;
+#include &lt;cassert&gt;
+#include &lt;safe_float.hpp&gt;
+#include &lt;safe_math.hpp&gt;
+
+using namespace std;
+int main() {
+    //example for uncatched domain error
+    try {
+        float unsafe_var = 2.0;
+        float unsafe_result;
+        unsafe_result = atanh(unsafe_var);
+        cout &lt;&lt; "no exception was thrown for atanh(2) when using float" &lt;&lt; endl;
+    } catch (std::exception) {
+        assert(false); // never arrive here
+    }
+
+    //example for catching the domain error by safe_float
+    try {
+        boost::numeric::safe&lt;float&gt; safe_var = 2.0;
+        boost::numeric::safe&lt;float&gt; safe_result;
+        safe_result = std::atanh(safe_var);
+        assert(false); // never arrive here
+    } catch (std::exception) {
+        cout &lt;&lt; "exception was thrown for acos(2) when using safe_float" &lt;&lt; endl;
+    }
+    return 0;
+}
+
+</pre>
+<p>Now, we show similar example for the case of the Pole errors; in
+      this case we evaluate the inverse hyperbolic tangent in its border,
+      which is 1. Then, infinity is returned which is not the value, but the
+      limit of the function in that point.</p>
+<p>First, we see how using float silently introduces a infinity in
+      the variable and continues, while using safe&lt;float&gt; throws an
+      exception.</p>
+<pre class="programlisting">#include &lt;cmath&gt;
+#include &lt;iostream&gt;
+#include &lt;cassert&gt;
+#include &lt;safe_float.hpp&gt;
+#include &lt;safe_math.hpp&gt;
+
+using namespace std;
+int main() {
+    //example for uncatched pole error
+    try {
+        float unsafe_var = 1.0;
+        float unsafe_result;
+        unsafe_result = atanh(unsafe_var);
+        cout &lt;&lt; "no exception was thrown for atanh(1) when using float" &lt;&lt; endl;
+    } catch (std::exception) {
+        assert(false); // never arrive here
+    }
+
+    //example for catching the pole error by safe_float
+    try {
+        boost::numeric::safe&lt;float&gt; safe_var = 1.0;
+        boost::numeric::safe&lt;float&gt; safe_result;
+        safe_result = std::atanh(safe_var);
+        assert(false); // never arrive here
+    } catch (std::exception) {
+        cout &lt;&lt; "exception was thrown for atanh(1) when using safe_float" &lt;&lt; endl;
+    }
+
+    return 0;
+}
+
+</pre>
+<p>Finally, we show an example of Range error, in this case we
+      introduce a value that the result is so large that it does not fit into
+      the variable.</p>
+<p>The value we chose is the first representable value below 1, this
+      value is extremly large since the function limit in 1 is infinity.
+      </p>
+<p>This error is different to Pole error in the sense that it may be
+      recoverable if using a higher precision data type, while the Pole is not
+      recoverable, the value is not in the function and the limit is being
+      used.</p>
+<p>Below, we show how using the safe&lt;float&gt; throws.</p>
+<pre class="programlisting">#include &lt;cmath&gt;
+#include &lt;iostream&gt;
+#include &lt;cassert&gt;
+#include &lt;safe_float.hpp&gt;
+#include &lt;safe_math.hpp&gt;
+
+using namespace std;
+int main() {
+
+    //example for uncatched range error
+    try {
+        float unsafe_var = nexttowardf(1, -INFINITY); //first representable value before 1.0
+        float unsafe_result;
+        unsafe_result = atanh(unsafe_var);
+        cout &lt;&lt; "no exception was thrown for atanh(1) when using float" &lt;&lt; endl;
+    } catch (std::exception) {
+        assert(false); // never arrive here
+    }
+
+    //example for catching the pole error by safe_float
+    try {
+        boost::numeric::safe&lt;float&gt; safe_var = nexttowardf(1, -INFINITY);
+        boost::numeric::safe&lt;float&gt; safe_result;
+        safe_result = std::atanh(safe_var);
+        assert(false); // never arrive here
+    } catch (std::exception) {
+        cout &lt;&lt; "exception was thrown for atanh(1) when using safe_float" &lt;&lt; endl;
+    }
+
+    return 0;
+}
+
+</pre>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h4 class="title">
+<a name="idp140530281617200"></a>Approximation problems on casting</h4></div></div></div>
+<p>This example is based on rules FLP34-C and FLP36-C from CERT
+      coding standard. These errors are produced by approximation problems
+      when casting between integer types, and floating point types, or when
+      casting between floating point types of different sizes.</p>
+<p>In the first example, we show the case of an odd integer number
+      larger than the floating point variable mantissa. This kind of integer
+      values cannot be represented in the floating point variable as it is, so
+      it is silently rounded when casted. Below, we show the same example
+      using safe&lt;float&gt;, in this case the assignation throws an
+      exception.</p>
+<pre class="programlisting">
+#include &lt;cmath&gt;
+#include &lt;iostream&gt;
+#include &lt;cassert&gt;
+#include &lt;safe_float.hpp&gt;
+#include &lt;safe_math.hpp&gt;
+#include &lt;limits&gt;
+
+using namespace std;
+int main() {
+    //example for uncatched int to float aproximation
+    try {
+        int i = (2&lt;&lt;(std::numeric_limits&lt;float&gt;::digits+2))+1;
+        float unsafe_var;
+        unsafe_var = i;
+        cout &lt;&lt; "no exception was thrown when casting from non representable int using float" &lt;&lt; endl;
+    } catch (std::exception) {
+        assert(false); // never arrive here
+    }
+
+    //example for catching example int to float aproximation
+    try {
+        int i;
+        i = (2&lt;&lt;(std::numeric_limits&lt;float&gt;::digits+2))+1;
+        boost::numeric::safe&lt;float&gt; safe_var;
+        safe_var = i;
+        assert(false); // never arrive here
+    } catch (std::exception) {
+        cout &lt;&lt; "exception was thrown when casting from non representable int using safe_float" &lt;&lt; endl;
+    }
+
+    return 0;
+}
+
+
+</pre>
+<p>In the following example, we show how a large value in floating
+      point produces undefined behavior when assigned to an integer variable
+      where the value does not fit. For the example, we chose the maximum
+      reprsentable number in float, which is certainly larger than any integer
+      representation. Below, the same example using safe&lt;float&gt; throwing
+      an exception at assign time.</p>
+<pre class="programlisting">
+#include &lt;cmath&gt;
+#include &lt;iostream&gt;
+#include &lt;cassert&gt;
+#include &lt;safe_float.hpp&gt;
+#include &lt;safe_math.hpp&gt;
+#include &lt;limits&gt;
+
+using namespace std;
+int main() {
+    //example for uncatched float to int out-of-range representation
+    try {
+        float unsafe_var = std::numeric_limits&lt;float&gt;::max();
+        int i;
+        i = unsafe_var;
+        cout &lt;&lt; "no exception was thrown when casting a large value to int using float" &lt;&lt; endl;
+    } catch (std::exception) {
+        assert(false); // never arrive here
+    }
+
+    //example for catching float to int out-of-range representation
+    try {
+        boost::numeric::safe&lt;float&gt; safe_var = std::numeric_limits&lt;float&gt;::max();
+        int i;
+        i = safe_var;
+        assert(false); // never arrive here
+    } catch (std::exception) {
+        cout &lt;&lt; "exception was thrown when casting a large value to int using safe_float" &lt;&lt; endl;
+    }
+
+    return 0;
+}
+
+
+</pre>
+<p>Finally, we show the case of narrowing, here the variable is
+      casted from a floating point type to another floating point type, where
+      the second size is smaller than the first one. In some cases, the
+      original value does not fit in the new variable. In the example we use
+      the maximum value representable on double and try to cast it down to
+      float, and later using safe&lt;float&gt; we show how an exception is
+      thrown.</p>
+<pre class="programlisting">
+#include &lt;cmath&gt;
+#include &lt;iostream&gt;
+#include &lt;cassert&gt;
+#include &lt;safe_float.hpp&gt;
+#include &lt;safe_math.hpp&gt;
+#include &lt;limits&gt;
+
+using namespace std;
+int main() {
+    //example for uncatched narrowing
+    try {
+        double unsafe_to_narrow = std::numeric_limits&lt;double&gt;::max();
+        float unsafe_var;
+        unsafe_var = unsafe_to_narrow;
+        cout &lt;&lt; "no exception was thrown when narrowing non representable number using float" &lt;&lt; endl;
+    } catch (std::exception) {
+        assert(false); // never arrive here
+    }
+
+    //example for catching narrowing
+    try {
+        double unsafe_to_narrow = std::numeric_limits&lt;double&gt;::max();
+        boost::numeric::safe&lt;float&gt; safe_var;
+        safe_var = unsafe_to_narrow;
+        assert(false); // never arrive here
+    } catch (std::exception) {
+        cout &lt;&lt; "exception was thrown when narrowing non representable number using safe_float" &lt;&lt; endl;
+    }
+
+    return 0;
+}
+
+
+</pre>
+<p>Something intesting to notice in the previous examples is that
+      safe&lt;float&gt; controls behavior when casting from or to any other
+      data type. This is because we are taking the default policy that
+      enforces all check, this can be changed by the user chosing what to
+      check using parameter templates.</p>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h4 class="title">
+<a name="idp140530281625040"></a>Associative operation fails</h4></div></div></div>
+<p>This example is based on rule FLP01-C/CPP &amp; FLP02-C/CPP from
+      CERT coding standard. These errors are produced by rearrange of
+      operations giving different results or inexact operations. </p>
+<p>We show below that adding and removing a number produce different
+      result than the expected, then when using safe&lt;float&gt; an exception
+      is thrown.</p>
+<pre class="programlisting">#include &lt;cmath&gt;
+#include &lt;iostream&gt;
+#include &lt;cassert&gt;
+#include &lt;safe_float.hpp&gt;
+#include &lt;safe_math.hpp&gt;
+#include &lt;limits&gt;
+
+using namespace std;
+int main() {
+    //example for uncatched int to float aproximation
+    try {
+        float a, b, c, d;
+        a = (8 &lt;&lt; std::numeric_limits&lt;float&gt;::digits);
+        b = -(8 &lt;&lt; std::numeric_limits&lt;float&gt;::digits);
+        c = 2;
+        d = 2;
+
+        c += a;
+        c += b;
+
+        a += b;
+        d += a;
+
+        assert(d != c);
+
+        cout &lt;&lt; "no exception was thrown when rearrange error happened on float" &lt;&lt; endl;
+    } catch (std::exception) {
+        assert(false); // never arrive here
+    }
+
+    //example for catching example int to float aproximation
+    try {
+        boost::numeric::safe&lt;float&gt; a, b, c, d;
+        a = (8 &lt;&lt; std::numeric_limits&lt;float&gt;::digits);
+        b = -(8 &lt;&lt; std::numeric_limits&lt;float&gt;::digits);
+        c = 2;
+        d = 2;
+
+        c += a;
+        c += b;
+
+        a += b;
+        d += a;
+
+        assert(false); // never arrive here
+    } catch (std::exception) {
+        cout &lt;&lt; "exception was thrown preventing rearrange error to happen on safe_float" &lt;&lt; endl;
+    }
+
+    return 0;
+}
+
+
+</pre>
+<p>The approach used by safe&lt;float&gt; here is checking every
+      operation produces a exact result, this is a strong requirement that
+      usually should be discarded when using floating point intended
+      algorithms as those defined in numerical methods for matrices
+      factorization.</p>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h4 class="title">
+<a name="idp140530281628816"></a>Unexpected inputs</h4></div></div></div>
+<p>This example is based on rule FLP04-CPP from CERT coding standard.
+      These errors are from unexpected floating-point inputs for exceptional
+      values. Here, we deal with the problem that iostream input allows user
+      to introduce NaN and infinite values. The example shows how this values
+      are introduced by the help of stringstreams, and below shows how
+      safe&lt;float&gt; throws exception when unexpected value arribes.</p>
+<pre class="programlisting">#include &lt;cmath&gt;
+#include &lt;iostream&gt;
+#include &lt;cassert&gt;
+#include &lt;safe_float.hpp&gt;
+#include &lt;safe_math.hpp&gt;
+#include &lt;limits&gt;
+#include &lt;sstream&gt;
+
+using namespace std;
+int main() {
+    //example for uncatched NaN input in float
+    try {
+        std::stringstream ss;
+        ss.str("NaN");
+        float f;
+        ss &gt;&gt; f;
+        assert(isnan(f));
+        cout &lt;&lt; "no exception was thrown allowing NaN input in float" &lt;&lt; endl;
+    } catch (std::exception) {
+        assert(false); // never arrive here
+    }
+
+    //example for catching NaN input in safe_float.
+    try {
+        std::stringstream ss;
+        ss.str("NaN");
+        boost::numeric::safe&lt;float&gt; sf;
+        ss &gt;&gt; sf;
+        assert(false); // never arrive here
+    } catch (std::exception) {
+        cout &lt;&lt; "exception was thrown preventing NaN input in safe_float" &lt;&lt; endl;
+    }
+
+    //example for uncatched inf input in float
+    try {
+        std::stringstream ss;
+        ss.str("inf");
+        float f;
+        ss &gt;&gt; f;
+        assert(isinf(f));
+        cout &lt;&lt; "no exception was thrown allowing inf input in float" &lt;&lt; endl;
+    } catch (std::exception) {
+        assert(false); // never arrive here
+    }
+
+    //example for catching inf input in safe_float.
+    try {
+        std::stringstream ss;
+        ss.str("inf");
+        boost::numeric::safe&lt;float&gt; sf;
+        ss &gt;&gt; sf;
+        assert(false); // never arrive here
+    } catch (std::exception) {
+        cout &lt;&lt; "exception was thrown preventing inf input in safe_float" &lt;&lt; endl;
+    }
+
+    return 0;
+}
+
+</pre>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h4 class="title">
+<a name="idp140530281631408"></a>Undetecting denormalization</h4></div></div></div>
+<p>This example is based on rule FLP05-C from CERT coding standard.
+      These errors are from unexpected floating-point use of denormalized
+      values. In most cases it is safest to avoid the use of denormal values
+      than dealing with them, in this case we detect if any denormal value is
+      used and throw when using safe&lt;float&gt;</p>
+<pre class="programlisting">#include &lt;cmath&gt;
+#include &lt;iostream&gt;
+#include &lt;cassert&gt;
+#include &lt;safe_float.hpp&gt;
+#include &lt;safe_math.hpp&gt;
+#include &lt;limits&gt;
+#include &lt;sstream&gt;
+
+using namespace std;
+int main() {
+    //example for uncatched denormal.
+    try {
+        float f;
+        f = std::numeric_limits&lt;float&gt;::denorm_min();
+        assert(std::fpclassify( f ) == FP_SUBNORMAL );
+        cout &lt;&lt; "no exception was thrown allowing subnormal in float" &lt;&lt; endl;
+    } catch (std::exception) {
+        assert(false); // never arrive here
+    }
+
+    //example for catching denormal in safe_float.
+    try {
+        boost::numeric::safe&lt;float&gt; sf;
+        sf = std::numeric_limits&lt;float&gt;::denorm_min();
+        assert(false); // never arrive here
+    } catch (std::exception) {
+        cout &lt;&lt; "exception was thrown preventing subnormal in safe_float" &lt;&lt; endl;
+    }
+
+    return 0;
+}
+
+</pre>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h4 class="title">
+<a name="idp140530281633872"></a>Other floating point concerns</h4></div></div></div>
+<p>Aside from the examples motivated by the CERT, there is other
+      concerns we are catching following the previously mentioned list of
+      dangers from Goldbergs' paper and individualy catching every exception
+      defined in the floating point environment. For more details in every
+      options, please check the library reference.</p>
+</div>
+</div>
 </div>
 <table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
 <td align="left"></td>
@@ -42,7 +793,7 @@
 </tr></table>
 <hr>
 <div class="spirit-nav">
-<a accesskey="p" href="introduction/scope.html"><img src="images/prev.png" alt="Prev"></a><a accesskey="u" href="index.html"><img src="images/up.png" alt="Up"></a><a accesskey="h" href="index.html"><img src="images/home.png" alt="Home"></a><a accesskey="n" href="tutorial/1.html"><img src="images/next.png" alt="Next"></a>
+<a accesskey="p" href="introduction.html"><img src="images/prev.png" alt="Prev"></a><a accesskey="u" href="index.html"><img src="images/up.png" alt="Up"></a><a accesskey="h" href="index.html"><img src="images/home.png" alt="Home"></a><a accesskey="n" href="notes.html"><img src="images/next.png" alt="Next"></a>
 </div>
 </body>
 </html>
