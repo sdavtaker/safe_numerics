@@ -15,7 +15,7 @@
 
 //This header file overloads <cmath> for safe_float types adding domain, pole and range error checking.
 namespace std {
-template < class T, class P, class E>
+template < class T, int P, class E>
 boost::numeric::safe_float<T, P, E> atanh(const boost::numeric::safe_float<T, P, E>& sf){
 
     if (math_errhandling & MATH_ERREXCEPT) {
@@ -26,11 +26,11 @@ boost::numeric::safe_float<T, P, E> atanh(const boost::numeric::safe_float<T, P,
 
 
     if (math_errhandling & MATH_ERRNO) {
-        if (errno==EDOM) throw std::exception(); //domain error
-        if (errno==ERANGE) throw std::exception(); //range error
+        if ( (P | boost::numeric::SF_DOMAIN) && errno==EDOM) throw std::exception(); //domain error
+        if ( (P | boost::numeric::SF_RANGE) && errno==ERANGE) throw std::exception(); //range error
     }
     if (math_errhandling  & MATH_ERREXCEPT) {
-        if (FE_INVALID | FE_DIVBYZERO | FE_OVERFLOW | FE_UNDERFLOW) throw std::exception(); //pole error
+        if ( (P | boost::numeric::SF_POLE) && (FE_INVALID | FE_DIVBYZERO | FE_OVERFLOW | FE_UNDERFLOW)) throw std::exception(); //pole error
     }
 
     return boost::numeric::safe_float<T, P, E>(tmp);
